@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor com Margens e Arquivos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .toolbar {
+            background-color: #e0e0e0;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .toolbar button:hover {
+            background-color: #0056b3;
+        }
+        
+        .toolbar button.ativo {
+            background-color: #28a745;
+            animation: pulse 1s infinite;
+        }
+        
+        .toolbar button.arquivo {
+            background-color: #6f42c1;
+        }
+        
+        .toolbar button.arquivo:hover {
+            background-color: #5a2d91;
+        }
+        
+        .toolbar button.salvar {
+            background-color: #fd7e14;
+        }
+        
+        .toolbar button.salvar:hover {
+            background-color: #e8590c;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .toolbar input {
+            padding: 8px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            width: 80px;
+            font-size: 16px;
+        }
+        
+        .toolbar label {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .arquivo-section {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .arquivo-info {
+            font-size: 14px;
+            color: #6c757d;
+            margin-left: 10px;
+        }
+        
+        .editor-area {
+            position: relative;
+            border: 3px solid #333;
+            border-radius: 5px;
+            height: 400px;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
+        
+        .editor {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 15px;
+            resize: none;
+            background-color: transparent;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .margens-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .linha-margem-vertical {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            opacity: 0.8;
+        }
+        
+        .linha-margem-horizontal {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            opacity: 0.8;
+        }
+        
+        .margem-verde {
+            background-color: #00ff00;
+            border: 1px solid #00aa00;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
+        }
+        
+        .margem-vermelha {
+            background-color: #ff0000;
+            border: 1px solid #aa0000;
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.7);
+        }
+        
+        .status {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        
+        .debug-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .alerta-margens {
+            background-color: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .alerta-margens.visivel {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        .alerta-arquivo {
+            background-color: #cce5ff;
+            border: 2px solid #007bff;
+            color: #004085;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .alerta-arquivo.visivel {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Esconder o input file padrão */
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Editor com Margens e Arquivos</h1>
+        
+        <div class="arquivo-section">
+            <button class="toolbar button arquivo" onclick="abrirArquivo()">📁 ABRIR ARQUIVO</button>
+            <button class="toolbar button salvar" onclick="salvarArquivo()">💾 SALVAR ARQUIVO</button>
+            <span class="arquivo-info" id="arquivoInfo">Nenhum arquivo carregado</span>
+            <input type="file" id="fileInput" accept=".txt,.md,.js,.html,.css,.json" onchange="lerArquivo(event)">
+        </div>
+        
+        <div class="alerta-arquivo" id="alertaArquivo">
+            📁 Arquivo carregado com sucesso!
+        </div>
+        
+        <div class="toolbar">
+            <label>🟢 Margem Verde (Vertical):</label>
+            <input type="number" id="margemVerde" value="30" min="0" max="100">
+            <span>caracteres</span>
+            
+            <label>🔴 Margem Vermelha (Horizontal):</label>
+            <input type="number" id="margemVermelha" value="10" min="0" max="50">
+            <span>linhas</span>
+            
+            <button id="btnMostrarMargens" onclick="alternarMargens()">🔍 MOSTRAR MARGENS</button>
+            <button onclick="ocultarMargens()">❌ OCULTAR</button>
+        </div>
+        
+        <div class="alerta-margens" id="alertaMargens">
+            ✅ MARGENS ATIVADAS! Você deve ver uma linha vertical verde e uma linha horizontal vermelha no editor.
+        </div>
+        
+        <div class="editor-area">
+            <div class="margens-container" id="margensContainer"></div>
+            <textarea class="editor" id="textEditor" placeholder="Digite seu texto aqui ou abra um arquivo...">Este é um editor de texto com margens e suporte a arquivos.
+
+FUNCIONALIDADES:
+- 📁 ABRIR ARQUIVO: Carrega arquivos de texto (.txt, .md, .js, .html, .css, .json)
+- 💾 SALVAR ARQUIVO: Salva o conteúdo atual em um arquivo
+
+MARGENS:
+- Linha verde (vertical): marca coluna de caracteres
+- Linha vermelha (horizontal): marca linha de texto
+
+Clique em "MOSTRAR MARGENS" para ativar as linhas de referência.
+
+Exemplo de texto longo para testar: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</textarea>
+        </div>
+        
+        <div class="status">
+            <strong>Status:</strong> <span id="statusTexto">Pronto - Use os botões para abrir/salvar arquivos ou mostrar margens</span>
+        </div>
+        
+        <div class="debug-info" id="debugInfo">
+            Debug: Aguardando ação...
+        </div>
+    </div>
+    
+    <script>
+        let margensAtivas = false;
+        let debugCount = 0;
+        let nomeArquivoAtual = '';
+        
+        function log(mensagem) {
+            debugCount++;
+            const debugDiv = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `<br>[${debugCount}] ${timestamp}: ${mensagem}`;
+            console.log(`[DEBUG] ${mensagem}`);
+        }
+        
+        // === FUNCIONALIDADES DE ARQUIVO ===
+        
+        function abrirArquivo() {
+            log('Função abrirArquivo() chamada');
+            
+            try {
+                // Simula clique no input file escondido
+                const fileInput = document.getElementById('fileInput');
+                fileInput.click();
+                log('Diálogo de seleção de arquivo aberto');
+                
+            } catch (error) {
+                log('ERRO em abrirArquivo(): ' + error.message);
+                alert('Erro ao abrir arquivo: ' + error.message);
+            }
+        }
+        
+        function lerArquivo(event) {
+            log('Função lerArquivo() chamada');
+            
+            try {
+                const arquivo = event.target.files[0];
+                
+                if (!arquivo) {
+                    log('Nenhum arquivo selecionado');
+                    return;
+                }
+                
+                log(`Arquivo selecionado: ${arquivo.name} (${arquivo.size} bytes)`);
+                
+                // Verifica se é um arquivo de texto
+                const tiposPermitidos = ['text/plain', 'text/markdown', 'text/javascript', 'text/html', 'text/css', 'application/json'];
+                const extensoesPermitidas = ['.txt', '.md', '.js', '.html', '.css', '.json'];
+                
+                const extensao = arquivo.name.toLowerCase().substring(arquivo.name.lastIndexOf('.'));
+                
+                if (!tiposPermitidos.includes(arquivo.type) && !extensoesPermitidas.includes(extensao)) {
+                    alert('Tipo de arquivo não suportado. Use arquivos de texto (.txt, .md, .js, .html, .css, .json)');
+                    log('Tipo de arquivo não suportado: ' + arquivo.type);
+                    return;
+                }
+                
+                // Lê o arquivo com codificação UTF-8 explícita
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const conteudo = e.target.result;
+                        
+                        // Coloca o conteúdo no editor
+                        const editor = document.getElementById('textEditor');
+                        editor.value = conteudo;
+                        
+                        // Atualiza informações do arquivo
+                        nomeArquivoAtual = arquivo.name;
+                        const arquivoInfo = document.getElementById('arquivoInfo');
+                        arquivoInfo.textContent = `Arquivo: ${arquivo.name} (${arquivo.size} bytes)`;
+                        
+                        // Mostra alerta de sucesso
+                        const alerta = document.getElementById('alertaArquivo');
+                        alerta.textContent = `📁 Arquivo "${arquivo.name}" carregado com sucesso!`;
+                        alerta.classList.add('visivel');
+                        
+                        // Oculta o alerta após 3 segundos
+                        setTimeout(() => {
+                            alerta.classList.remove('visivel');
+                        }, 3000);
+                        
+                        // Atualiza status
+                        document.getElementById('statusTexto').textContent = `Arquivo "${arquivo.name}" carregado com sucesso`;
+                        
+                        log(`Arquivo carregado com sucesso: ${conteudo.length} caracteres`);
+                        
+                    } catch (error) {
+                        log('ERRO ao processar conteúdo do arquivo: ' + error.message);
+                        alert('Erro ao processar arquivo: ' + error.message);
+                    }
+                };
+                
+                reader.onerror = function() {
+                    log('ERRO ao ler arquivo');
+                    alert('Erro ao ler o arquivo');
+                };
+                
+                // Lê como texto com codificação UTF-8 explícita
+                reader.readAsText(arquivo, 'UTF-8');
+                
+            } catch (error) {
+                log('ERRO em lerArquivo(): ' + error.message);
+                alert('Erro ao processar arquivo: ' + error.message);
+            }
+        }
+        
+        function salvarArquivo() {
+            log('Função salvarArquivo() chamada');
+            
+            try {
+                const editor = document.getElementById('textEditor');
+                const conteudo = editor.value;
+                
+                if (!conteudo.trim()) {
+                    alert('O editor está vazio. Digite algum conteúdo antes de salvar.');
+                    log('Tentativa de salvar arquivo vazio');
+                    return;
+                }
+                
+                // Nome do arquivo padrão
+                let nomeArquivo = nomeArquivoAtual || 'documento.txt';
+                
+                // Pergunta o nome do arquivo ao usuário
+                const novoNome = prompt('Nome do arquivo:', nomeArquivo);
+                
+                if (novoNome === null) {
+                    log('Salvamento cancelado pelo usuário');
+                    return;
+                }
+                
+                if (novoNome.trim()) {
+                    nomeArquivo = novoNome.trim();
+                }
+                
+                // Cria um blob com o conteúdo e codificação UTF-8 explícita
+                const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+                
+                // Cria um link de download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = nomeArquivo;
+                
+                // Simula clique no link para iniciar download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Libera a URL do objeto
+                URL.revokeObjectURL(link.href);
+                
+                // Atualiza informações
+                nomeArquivoAtual = nomeArquivo;
+                const arquivoInfo = document.getElementById('arquivoInfo');
+                arquivoInfo.textContent = `Arquivo: ${nomeArquivo} (${conteudo.length} caracteres)`;
+                
+                // Atualiza status
+                document.getElementById('statusTexto').textContent = `Arquivo "${nomeArquivo}" salvo com sucesso`;
+                
+                log(`Arquivo salvo: ${nomeArquivo} (${conteudo.length} caracteres)`);
+                
+            } catch (error) {
+                log('ERRO em salvarArquivo(): ' + error.message);
+                alert('Erro ao salvar arquivo: ' + error.message);
+            }
+        }
+        
+        // === FUNCIONALIDADES DE MARGENS ===
+        
+        function alternarMargens() {
+            log('Função alternarMargens() chamada');
+            
+            if (margensAtivas) {
+                ocultarMargens();
+            } else {
+                mostrarMargens();
+            }
+        }
+        
+        function mostrarMargens() {
+            log('Iniciando mostrarMargens()');
+            
+            try {
+                margensAtivas = true;
+                
+                // Atualiza o botão
+                const btn = document.getElementById('btnMostrarMargens');
+                btn.textContent = '✅ MARGENS ATIVAS';
+                btn.classList.add('ativo');
+                log('Botão atualizado');
+                
+                // Mostra o alerta
+                const alerta = document.getElementById('alertaMargens');
+                alerta.classList.add('visivel');
+                log('Alerta mostrado');
+                
+                // Cria as margens
+                criarLinhasMargens();
+                
+                // Atualiza status
+                document.getElementById('statusTexto').textContent = 'Margens ativadas com sucesso!';
+                log('Status atualizado');
+                
+            } catch (error) {
+                log('ERRO em mostrarMargens(): ' + error.message);
+            }
+        }
+        
+        function ocultarMargens() {
+            log('Iniciando ocultarMargens()');
+            
+            try {
+                margensAtivas = false;
+                
+                // Atualiza o botão
+                const btn = document.getElementById('btnMostrarMargens');
+                btn.textContent = '🔍 MOSTRAR MARGENS';
+                btn.classList.remove('ativo');
+                
+                // Oculta o alerta
+                const alerta = document.getElementById('alertaMargens');
+                alerta.classList.remove('visivel');
+                
+                // Remove as linhas
+                const container = document.getElementById('margensContainer');
+                container.innerHTML = '';
+                
+                // Atualiza status
+                document.getElementById('statusTexto').textContent = 'Margens desativadas';
+                log('Margens ocultadas com sucesso');
+                
+            } catch (error) {
+                log('ERRO em ocultarMargens(): ' + error.message);
+            }
+        }
+        
+        function criarLinhasMargens() {
+            log('Iniciando criarLinhasMargens()');
+            
+            try {
+                const container = document.getElementById('margensContainer');
+                const margemVerde = parseInt(document.getElementById('margemVerde').value) || 0;
+                const margemVermelha = parseInt(document.getElementById('margemVermelha').value) || 0;
+                
+                log(`Valores: Verde=${margemVerde} caracteres, Vermelho=${margemVermelha} linhas`);
+                
+                // Limpa container
+                container.innerHTML = '';
+                
+                // Calcula posições
+                const larguraChar = 9.6; // aproximadamente 9.6px por caractere em Courier New 16px
+                const alturaLinha = 24; // aproximadamente 24px por linha (line-height: 1.5 * 16px)
+                const paddingEsquerdo = 15; // padding do textarea
+                const paddingTopo = 15; // padding do textarea
+                
+                // Cria linha verde (vertical)
+                if (margemVerde > 0) {
+                    const linhaVerde = document.createElement('div');
+                    linhaVerde.className = 'linha-margem-vertical margem-verde';
+                    linhaVerde.style.left = (paddingEsquerdo + margemVerde * larguraChar) + 'px';
+                    linhaVerde.title = `Margem Verde: ${margemVerde} caracteres`;
+                    container.appendChild(linhaVerde);
+                    log(`Linha verde (vertical) criada na posição ${paddingEsquerdo + margemVerde * larguraChar}px`);
+                }
+                
+                // Cria linha vermelha (horizontal)
+                if (margemVermelha > 0) {
+                    const linhaVermelha = document.createElement('div');
+                    linhaVermelha.className = 'linha-margem-horizontal margem-vermelha';
+                    linhaVermelha.style.top = (paddingTopo + margemVermelha * alturaLinha) + 'px';
+                    linhaVermelha.title = `Margem Vermelha: ${margemVermelha} linhas`;
+                    container.appendChild(linhaVermelha);
+                    log(`Linha vermelha (horizontal) criada na posição ${paddingTopo + margemVermelha * alturaLinha}px`);
+                }
+                
+                log('Linhas de margem criadas com sucesso');
+                
+            } catch (error) {
+                log('ERRO em criarLinhasMargens(): ' + error.message);
+            }
+        }
+        
+        // Event listeners para atualizar margens em tempo real
+        document.getElementById('margemVerde').addEventListener('input', function() {
+            if (margensAtivas) {
+                log('Valor da margem verde alterado para: ' + this.value);
+                criarLinhasMargens();
+            }
+        });
+        
+        document.getElementById('margemVermelha').addEventListener('input', function() {
+            if (margensAtivas) {
+                log('Valor da margem vermelha alterado para: ' + this.value);
+                criarLinhasMargens();
+            }
+        });
+        
+        // Atalhos de teclado
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+O para abrir arquivo
+            if (e.ctrlKey && e.key === 'o') {
+                e.preventDefault();
+                abrirArquivo();
+                log('Atalho Ctrl+O usado para abrir arquivo');
+            }
+            
+            // Ctrl+S para salvar arquivo
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                salvarArquivo();
+                log('Atalho Ctrl+S usado para salvar arquivo');
+            }
+        });
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Página carregada e pronta');
+            log('Funcionalidades disponíveis:');
+            log('- 📁 ABRIR ARQUIVO (ou Ctrl+O)');
+            log('- 💾 SALVAR ARQUIVO (ou Ctrl+S)');
+            log('- 🔍 MOSTRAR/OCULTAR MARGENS');
+            log('- Margem verde: linha vertical por caracteres');
+            log('- Margem vermelha: linha horizontal por linhas de texto');
+        });
+    </script>
+</body>
+</html>
+
